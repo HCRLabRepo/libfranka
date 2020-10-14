@@ -32,6 +32,14 @@ bool executeCommand(Network& network, TArgs&&... args) {
   }
 }
 
+template <typename T, typename... TArgs>
+bool executeCommandAsync(Network& network, TArgs&&... args) {
+  uint32_t command_id = network.tcpSendRequest<T>(std::forward<TArgs>(args)...);
+  bool response = network.tcpReceiveResponse<T>(command_id, [](auto) {});
+  return response;
+
+}
+
 GripperState convertGripperState(
     const research_interface::gripper::GripperState& gripper_state) noexcept {
   GripperState converted;
@@ -61,7 +69,7 @@ Gripper::ServerVersion Gripper::serverVersion() const noexcept {
 }
 
 bool Gripper::homing() const {
-  return executeCommand<research_interface::gripper::Homing>(*network_);
+  return executeCommandAsync<research_interface::gripper::Homing>(*network_);
 }
 
 bool Gripper::grasp(double width,
@@ -70,16 +78,16 @@ bool Gripper::grasp(double width,
                     double epsilon_inner,
                     double epsilon_outer) const {
   research_interface::gripper::Grasp::GraspEpsilon epsilon(epsilon_inner, epsilon_outer);
-  return executeCommand<research_interface::gripper::Grasp>(*network_, width, epsilon, speed,
+  return executeCommandAsync<research_interface::gripper::Grasp>(*network_, width, epsilon, speed,
                                                             force);
 }
 
 bool Gripper::move(double width, double speed) const {
-  return executeCommand<research_interface::gripper::Move>(*network_, width, speed);
+  return executeCommandAsync<research_interface::gripper::Move>(*network_, width, speed);
 }
 
 bool Gripper::stop() const {
-  return executeCommand<research_interface::gripper::Stop>(*network_);
+  return executeCommandAsync<research_interface::gripper::Stop>(*network_);
 }
 
 GripperState Gripper::readOnce() const {
