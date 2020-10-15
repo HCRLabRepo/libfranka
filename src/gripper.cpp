@@ -78,19 +78,68 @@ bool Gripper::grasp(double width,
                     double epsilon_inner,
                     double epsilon_outer) const {
   research_interface::gripper::Grasp::GraspEpsilon epsilon(epsilon_inner, epsilon_outer);
-  return executeCommandAsync<research_interface::gripper::Grasp>(*network_, width, epsilon, speed,
+  return executeCommand<research_interface::gripper::Grasp>(*network_, width, epsilon, speed,
                                                             force);
 }
 
 bool Gripper::move(double width, double speed) const {
-  return executeCommandAsync<research_interface::gripper::Move>(*network_, width, speed);
+  return executeCommand<research_interface::gripper::Move>(*network_, width, speed);
 }
 
 bool Gripper::stop() const {
-  return executeCommandAsync<research_interface::gripper::Stop>(*network_);
+  return executeCommand<research_interface::gripper::Stop>(*network_);
 }
 
 GripperState Gripper::readOnce() const {
+  research_interface::gripper::GripperState gripper_state;
+  // Delete old data from the UDP buffer.
+  while (network_->udpReceive<decltype(gripper_state)>(&gripper_state)) {
+  }
+
+  gripper_state = network_->udpBlockingReceive<decltype(gripper_state)>();
+  return convertGripperState(gripper_state);
+}
+
+
+
+GripperASynch::GripperASynch(const std::string& franka_address)
+    : network_{
+          std::make_unique<Network>(franka_address, research_interface::gripper::kCommandPort)} {
+  connect<research_interface::gripper::Connect, research_interface::gripper::kVersion>(
+      *network_, &ri_version_);
+}
+
+GripperASynch::~GripperASynch() noexcept = default;
+GripperASynch::GripperASynch(GripperASynch&&) noexcept = default;
+GripperASynch& GripperASynch::operator=(GripperASynch&&) noexcept = default;
+
+GripperASynch::ServerVersion GripperASynch::serverVersion() const noexcept {
+  return ri_version_;
+}
+
+bool GripperASynch::homing() const {
+  return executeCommandAsync<research_interface::gripper::Homing>(*network_);
+}
+
+bool GripperASynch::grasp(double width,
+                    double speed,
+                    double force,
+                    double epsilon_inner,
+                    double epsilon_outer) const {
+  research_interface::gripper::Grasp::GraspEpsilon epsilon(epsilon_inner, epsilon_outer);
+  return executeCommandAsync<research_interface::gripper::Grasp>(*network_, width, epsilon, speed,
+                                                            force);
+}
+
+bool GripperASynch::move(double width, double speed) const {
+  return executeCommandAsync<research_interface::gripper::Move>(*network_, width, speed);
+}
+
+bool GripperASynch::stop() const {
+  return executeCommandAsync<research_interface::gripper::Stop>(*network_);
+}
+
+GripperState GripperASynch::readOnce() const {
   research_interface::gripper::GripperState gripper_state;
   // Delete old data from the UDP buffer.
   while (network_->udpReceive<decltype(gripper_state)>(&gripper_state)) {
